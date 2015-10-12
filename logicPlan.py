@@ -216,7 +216,6 @@ def extractActionSequence(model, actions):
     >>> print plan
     ['West', 'South', 'North']
     """
-    # print model.keys()
     models = []
     final = []
     for i in model.keys():
@@ -229,10 +228,6 @@ def extractActionSequence(model, actions):
         final.append(m[0])
     return final
 
-    # trues = [key for key in model.keys() if model[key]]
-    # print trues
-
-
 def pacmanSuccessorStateAxioms(x, y, t, walls_grid):
     """
     Successor state axiom for state (x,y,t) (from t-1), given the board (as a 
@@ -244,16 +239,60 @@ def pacmanSuccessorStateAxioms(x, y, t, walls_grid):
 
 
 def positionLogicPlan(problem):
-    """
-    Given an instance of a PositionPlanningProblem, return a list of actions that lead to the goal.
-    Available actions are game.Directions.{NORTH,SOUTH,EAST,WEST}
-    Note that STOP is not an available action.
-    """
-    walls = problem.walls
-    width, height = problem.getWidth(), problem.getHeight()
-    
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    manhattanDistance = util.manhattanDistance(problem.getStartState(), problem.getGoalState())
+    for time in range(manhattanDistance, 3000):
+        exprs = []
+
+        start=problem.getStartState()
+        goal=problem.getGoalState()
+        exprs.append(logic.PropSymbolExpr("P",start[0],start[1],0))
+        exprs.append(logic.PropSymbolExpr("P",goal[0],goal[1],time))
+
+        positions = []
+        for x in range(1,problem.getWidth()+1):
+            for y in range(1,problem.getHeight()+1):
+                if not problem.isWall((x,y)) and (x,y)!=problem.getStartState():
+                    positionSymbol = logic.Expr('~',logic.PropSymbolExpr("P",x,y,0))
+                    exprs.append(positionSymbol)
+
+        for t in range(0,time):
+            northSymbol = logic.PropSymbolExpr("North", t)
+            southSymbol = logic.PropSymbolExpr("South", t)
+            westSymbol = logic.PropSymbolExpr("West", t)
+            eastSymbol = logic.PropSymbolExpr("East", t)
+            exactlyOneAction = exactlyOne([northSymbol, southSymbol, westSymbol, eastSymbol])
+            appendToExprs(exprs, exactlyOneAction)
+
+        for t in range(1, time+1):
+            for x in range(1,problem.getWidth()+1):
+                for y in range(1,problem.getHeight()+1):
+                    if not problem.isWall((x,y)):
+                        actions = problem.actions((x,y))
+                        prevExprs = []
+                        for action in actions:
+                            currentStatePropSymbolExpr = logic.PropSymbolExpr("P", x, y, t)
+                            prevState = ()
+                            if action == 'North':
+                                action = 'South'
+                                prevState = (x,y+1)
+                            elif action == 'South':
+                                action = 'North'
+                                prevState = (x,y-1)
+                            elif action == 'West':
+                                action = 'East'
+                                prevState = (x-1,y)
+                            elif action == 'East':
+                                action = 'West'
+                                prevState = (x+1,y)
+                            actionPropSymbolExpr = logic.PropSymbolExpr(action, t-1)
+                            prevStatePropSymbolExpr = logic.PropSymbolExpr("P", prevState[0], prevState[1], t-1)
+                            prevExprs.append(logic.Expr("&", actionPropSymbolExpr, prevStatePropSymbolExpr))
+                        prevExprsOrred = logic.Expr("|", *prevExprs)
+                        iff = logic.Expr("<=>", prevExprsOrred, currentStatePropSymbolExpr)
+                        appendToExprs(exprs, iff)
+        result = logic.pycoSAT(exprs)
+        if result:
+            return true
 
 
 def foodLogicPlan(problem):

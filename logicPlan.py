@@ -216,8 +216,21 @@ def extractActionSequence(model, actions):
     >>> print plan
     ['West', 'South', 'North']
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # print model.keys()
+    models = []
+    final = []
+    for i in model.keys():
+        if model[i]:
+            a = logic.PropSymbolExpr.parseExpr(i)
+            if a[0] in actions:
+                models.append(a)
+    p = sorted(models, key=lambda mod: int(mod[1]))
+    for m in p:
+        final.append(m[0])
+    return final
+
+    # trues = [key for key in model.keys() if model[key]]
+    # print trues
 
 
 def pacmanSuccessorStateAxioms(x, y, t, walls_grid):

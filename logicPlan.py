@@ -153,8 +153,7 @@ def atLeastOne(literals) :
     >>> print logic.pl_true(atleast1,model2)
     True
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    return logic.disjoin(literals)
 
 
 def atMostOne(literals) :
@@ -163,8 +162,19 @@ def atMostOne(literals) :
     CNF (conjunctive normal form) that represents the logic that at most one of 
     the expressions in the list is true.
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    conjunctions = []
+    for literal in literals:
+        not_literal = ~literal
+
+        # Disjoin literal with NOT(literal) for every other element besides this literal
+        # and add it to the list to be conjoined
+        for inner_literal in literals:
+            if literal != inner_literal:
+                not_inner_literal = ~inner_literal
+                disjunction = logic.disjoin(not_literal, not_inner_literal)
+                conjunctions.append(disjunction)
+
+    return logic.conjoin(conjunctions)
 
 
 def exactlyOne(literals) :
@@ -173,8 +183,25 @@ def exactlyOne(literals) :
     CNF (conjunctive normal form)that represents the logic that exactly one of 
     the expressions in the list is true.
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    conjunctions = []
+    one_must_be_true_list = []
+    for literal in literals:
+        not_literal = ~literal
+        one_must_be_true_list.append(literal)
+
+        # Disjoin literal with NOT(literal) for every other element besides this literal
+        # and add it to the list to be conjoined
+        for inner_literal in literals:
+            if literal != inner_literal:
+                not_inner_literal = ~inner_literal
+                disjunction = logic.disjoin(not_literal, not_inner_literal)
+                conjunctions.append(disjunction)
+
+    # Add the expression that states at least one of the literals must be true
+    one_must_be_true = logic.disjoin(one_must_be_true_list)
+    conjunctions.append(one_must_be_true)
+
+    return logic.conjoin(conjunctions)
 
 
 def extractActionSequence(model, actions):

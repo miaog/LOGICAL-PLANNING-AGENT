@@ -130,7 +130,9 @@ def findModel(sentence):
     """Given a propositional logic sentence (i.e. a logic.Expr instance), returns a satisfying
     model if one exists. Otherwise, returns False.
     """
+    # print sentence
     a = logic.to_cnf(sentence)
+    
     b = logic.pycoSAT(a)
     return b
 
@@ -183,6 +185,7 @@ def exactlyOne(literals) :
     CNF (conjunctive normal form)that represents the logic that exactly one of 
     the expressions in the list is true.
     """
+    # print literals
     conjunctions = []
     one_must_be_true_list = []
     for literal in literals:
@@ -264,65 +267,73 @@ def pacmanSuccessorStateAxioms(x, y, t, walls_grid):
 
     prev_states = atLeastOne(neighbors)
     final_axiom = current % prev_states
-    return final_axiom 
+    # print final_axiom
+    return final_axiom
 
 
 def positionLogicPlan(problem):
-    manhattanDistance = util.manhattanDistance(problem.getStartState(), problem.getGoalState())
-    for time in range(manhattanDistance, 3000):
-        exprs = []
+    """
+    Given an instance of a PositionPlanningProblem, return a list of actions that lead to the goal.
+    Available actions are game.Directions.{NORTH,SOUTH,EAST,WEST}
+    Note that STOP is not an available action.
+    """
+    walls = problem.walls
+    # print walls.asList()
 
-        start=problem.getStartState()
-        goal=problem.getGoalState()
-        exprs.append(logic.PropSymbolExpr("P",start[0],start[1],0))
-        exprs.append(logic.PropSymbolExpr("P",goal[0],goal[1],time))
+    MAX_TIME_STEP = 50
+    actions = ['North', 'East', 'South', 'West']
+    width, height = problem.getWidth(), problem.getHeight()
+    initial_state = problem.getStartState()
+    current = logic.PropSymbolExpr(pacman_str, initial_state[0], initial_state[1], 0)
+    goal_state = problem.getGoalState()
+    expression = list()
 
-        positions = []
-        for x in range(1,problem.getWidth()+1):
-            for y in range(1,problem.getHeight()+1):
-                if not problem.isWall((x,y)) and (x,y)!=problem.getStartState():
-                    positionSymbol = logic.Expr('~',logic.PropSymbolExpr("P",x,y,0))
-                    exprs.append(positionSymbol)
-
-        for t in range(0,time):
-            northSymbol = logic.PropSymbolExpr("North", t)
-            southSymbol = logic.PropSymbolExpr("South", t)
-            westSymbol = logic.PropSymbolExpr("West", t)
-            eastSymbol = logic.PropSymbolExpr("East", t)
-            exactlyOneAction = exactlyOne([northSymbol, southSymbol, westSymbol, eastSymbol])
-            appendToExprs(exprs, exactlyOneAction)
-
-        for t in range(1, time+1):
-            for x in range(1,problem.getWidth()+1):
-                for y in range(1,problem.getHeight()+1):
-                    if not problem.isWall((x,y)):
-                        actions = problem.actions((x,y))
-                        prevExprs = []
+    for x in range(1, width + 1) :
+        for y in range(1, height + 1) :
+            if (x, y) == initial_state:
+                if expression:
+                    v = expression.pop()
+                    expression.append(logic.conjoin(v,logic.PropSymbolExpr("P", x, y, 0)))
+                else:
+                    expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
+            else :
+                if expression:
+                    v = expression.pop()
+                    expression.append(logic.conjoin(v,logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))))
+                else:
+                    expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
+    initial = expression[0]
+    # print initial
+    successors = []
+    exclusion = []
+    for t in range(3):
+        for x in range(1, width + 1):
+            for y in range(1, height + 1):
+                if (x, y) not in walls.asList():
+                    n = []
+                    if t > 0:
+                        successors += [pacmanSuccessorStateAxioms(x, y, t, walls)]
                         for action in actions:
-                            currentStatePropSymbolExpr = logic.PropSymbolExpr("P", x, y, t)
-                            prevState = ()
-                            if action == 'North':
-                                action = 'South'
-                                prevState = (x,y+1)
-                            elif action == 'South':
-                                action = 'North'
-                                prevState = (x,y-1)
-                            elif action == 'West':
-                                action = 'East'
-                                prevState = (x-1,y)
-                            elif action == 'East':
-                                action = 'West'
-                                prevState = (x+1,y)
-                            actionPropSymbolExpr = logic.PropSymbolExpr(action, t-1)
-                            prevStatePropSymbolExpr = logic.PropSymbolExpr("P", prevState[0], prevState[1], t-1)
-                            prevExprs.append(logic.Expr("&", actionPropSymbolExpr, prevStatePropSymbolExpr))
-                        prevExprsOrred = logic.Expr("|", *prevExprs)
-                        iff = logic.Expr("<=>", prevExprsOrred, currentStatePropSymbolExpr)
-                        appendToExprs(exprs, iff)
-        result = logic.pycoSAT(exprs)
-        if result:
-            return true
-
+                            exclusion.append(logic.PropSymbolExpr(action, t-1))
+                        n = exactlyOne(exclusion)
+                    # print n
+                    # print "     "
+                    suc = logic.conjoin(successors)
+                    # print suc
+                    # print "     "
+                    goal = pacmanSuccessorStateAxioms(goal_state[0], goal_state[1], t + 1, walls)
+                    # print goal
+                    # print "     "
+                    if n and successors:
+                        j = findModel(logic.conjoin(initial, goal, suc, n))
+                    else:
+                        print "hi"
+                        j = findModel(logic.conjoin(initial, goal))
+                    print j
+                    # return None
+                    if j is True:
+                        return extractActionSequence(j, actions)
+    return None
 
 def foodLogicPlan(problem):
     """
@@ -345,9 +356,28 @@ def ghostPositionSuccessorStateAxioms(x, y, t, ghost_num, walls_grid):
     """
     pos_str = ghost_pos_str+str(ghost_num)
     east_str = ghost_east_str+str(ghost_num)
+    current = logic.PropSymbolExpr(pos_str, x, y, t)
 
-    "*** YOUR CODE HERE ***"
-    return logic.Expr('A') # Replace this with your expression
+    neighbors = []
+
+    if walls_grid[x-1][y] == False:
+        prev_position = logic.PropSymbolExpr(pos_str, x-1, y, t-1)
+        action = logic.PropSymbolExpr(east_str, t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    if walls_grid[x+1][y] == False:
+        prev_position = logic.PropSymbolExpr(pos_str, x+1, y, t-1)
+        action = ~logic.PropSymbolExpr(east_str, t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    prev_states = atLeastOne(neighbors)
+    if str(prev_states) == "FALSE":
+        final_axiom = current % logic.PropSymbolExpr(pos_str, x, y, t-1)
+    else:
+        final_axiom = current % prev_states
+    return final_axiom
 
 def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blocked_east_positions):
     """
@@ -358,8 +388,37 @@ def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blo
     pos_str = ghost_pos_str+str(ghost_num)
     east_str = ghost_east_str+str(ghost_num)
 
-    "*** YOUR CODE HERE ***"
-    return logic.Expr('A') # Replace this with your expression
+    neighbors = []
+    to_join = []
+    n1 = blocked_west_positions[:]
+    p1 = blocked_east_positions[:]
+    dont = []
+    wont = []
+    hont = []
+    while n1:
+        a = n1.pop()
+        dont += [logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
+        hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
+    while p1:
+        a = p1.pop()
+        wont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
+        hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
+
+    #make sure ghost is not in positions where it is blocked to the right
+    wont = logic.conjoin(wont)
+    tont = logic.conjoin(dont)
+    dont = logic.disjoin(dont)
+    hont = logic.conjoin(hont)
+    sont = logic.conjoin(wont, tont)
+    jont = ~logic.conjoin(hont, ~logic.PropSymbolExpr(east_str, t-1))
+    m = logic.disjoin(wont, dont)
+    h = logic.conjoin(wont, dont)
+    k = logic.conjoin(m, ~logic.PropSymbolExpr(east_str, t-1))
+    l = logic.disjoin(k, logic.conjoin(h, logic.PropSymbolExpr(east_str, t-1)), logic.conjoin(hont, logic.PropSymbolExpr(east_str, t-1)))
+    b = logic.conjoin(l, jont)
+    final_axiom = logic.PropSymbolExpr(east_str, t) % b
+    return final_axiom
+    # return logic.Expr('A') 
 
 
 def pacmanAliveSuccessorStateAxioms(x, y, t, num_ghosts):
@@ -368,9 +427,21 @@ def pacmanAliveSuccessorStateAxioms(x, y, t, num_ghosts):
     Current <==> (causes to stay) | (causes of current)
     """
     ghost_strs = [ghost_pos_str+str(ghost_num) for ghost_num in xrange(num_ghosts)]
+    current = logic.PropSymbolExpr(pacman_str, x, y, t)
+    ghosts = ghost_strs[:]
+    neighbors = []
 
-    "*** YOUR CODE HERE ***"
-    return logic.Expr('A') # Replace this with your expression
+    k = []
+    l = []
+    while num_ghosts != 0:
+        k += [logic.conjoin(logic.PropSymbolExpr(pacman_str, x, y, t), logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t))]
+        l += [logic.conjoin(logic.PropSymbolExpr(pacman_str, x, y, t), logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t-1))]
+        num_ghosts -= 1
+    m = ~logic.PropSymbolExpr(pacman_alive_str, t-1)
+
+    prev_states = logic.disjoin(logic.disjoin(k), logic.disjoin(l), m)
+    final_axiom = ~logic.PropSymbolExpr(pacman_alive_str, t) % prev_states
+    return final_axiom
 
 def foodGhostLogicPlan(problem):
     """

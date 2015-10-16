@@ -281,44 +281,6 @@ def pacmanSuccessorStateAxioms(x, y, t, walls_grid):
     # print final_axiom
     return final_axiom
 
-def foodSuccessorStateAxioms(x, y, t, walls_grid):
-    """
-    Successor state axiom for state (x,y,t) (from t-1), given the board (as a 
-    grid representing the wall locations).
-    Current <==> (previous position at time t-1) & (took action to move to x, y)
-    """
-    current = logic.PropSymbolExpr(pacman_str, x, y, t)
-
-    neighbors = []
-
-    if walls_grid[x-1][y] == False:
-        prev_position = logic.PropSymbolExpr(pacman_str, x-1, y, t-1)
-        action = logic.PropSymbolExpr('East', t-1)
-        state = logic.conjoin(prev_position, action)
-        neighbors.append(state)
-
-    if walls_grid[x+1][y] == False:
-        prev_position = logic.PropSymbolExpr(pacman_str, x+1, y, t-1)
-        action = logic.PropSymbolExpr('West', t-1)
-        state = logic.conjoin(prev_position, action)
-        neighbors.append(state)
-
-    if walls_grid[x][y-1] == False:
-        prev_position = logic.PropSymbolExpr(pacman_str, x, y-1, t-1)
-        action = logic.PropSymbolExpr('North', t-1)
-        state = logic.conjoin(prev_position, action)
-        neighbors.append(state)
-
-    if walls_grid[x][y+1] == False:
-        prev_position = logic.PropSymbolExpr(pacman_str, x, y+1, t-1)
-        action = logic.PropSymbolExpr('South', t-1)
-        state = logic.conjoin(prev_position, action)
-        neighbors.append(state)
-
-    prev_states = atLeastOne(neighbors)
-    final_axiom = current % prev_states
-    return final_axiom
-
 def positionLogicPlan(problem):
     """
     Given an instance of a PositionPlanningProblem, return a list of actions that lead to the goal.

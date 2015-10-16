@@ -281,6 +281,43 @@ def pacmanSuccessorStateAxioms(x, y, t, walls_grid):
     # print final_axiom
     return final_axiom
 
+def foodSuccessorStateAxioms(x, y, t, walls_grid):
+    """
+    Successor state axiom for state (x,y,t) (from t-1), given the board (as a 
+    grid representing the wall locations).
+    Current <==> (previous position at time t-1) & (took action to move to x, y)
+    """
+    current = logic.PropSymbolExpr(pacman_str, x, y, t)
+
+    neighbors = []
+
+    if walls_grid[x-1][y] == False:
+        prev_position = logic.PropSymbolExpr(pacman_str, x-1, y, t-1)
+        action = logic.PropSymbolExpr('East', t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    if walls_grid[x+1][y] == False:
+        prev_position = logic.PropSymbolExpr(pacman_str, x+1, y, t-1)
+        action = logic.PropSymbolExpr('West', t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    if walls_grid[x][y-1] == False:
+        prev_position = logic.PropSymbolExpr(pacman_str, x, y-1, t-1)
+        action = logic.PropSymbolExpr('North', t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    if walls_grid[x][y+1] == False:
+        prev_position = logic.PropSymbolExpr(pacman_str, x, y+1, t-1)
+        action = logic.PropSymbolExpr('South', t-1)
+        state = logic.conjoin(prev_position, action)
+        neighbors.append(state)
+
+    prev_states = atLeastOne(neighbors)
+    final_axiom = current % prev_states
+    return final_axiom
 
 def positionLogicPlan(problem):
     """
@@ -355,8 +392,74 @@ def foodLogicPlan(problem):
     walls = problem.walls
     width, height = problem.getWidth(), problem.getHeight()
 
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    MAX_TIME_STEP = 50
+    actions = ['North', 'East', 'South', 'West']
+    
+
+    initial_state = problem.getStartState()
+    # Pacman's initial location
+    pacman_initial_location = initial_state[0]
+    # Food locations
+    food_locations = initial_state[1].asList()
+
+    expression = list()
+
+    for x in range(1, width + 1) :
+        for y in range(1, height + 1) :
+            if (x, y) == pacman_initial_location:
+                if expression:
+                    v = expression.pop()
+                    expression.append(logic.conjoin(v,logic.PropSymbolExpr("P", x, y, 0)))
+                else:
+                    expression.append(logic.Expr(logic.PropSymbolExpr("P", x, y, 0)))
+            else:
+                if expression:
+                    v = expression.pop()
+                    expression.append(logic.conjoin(v,logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))))
+                else:
+                    expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
+    initial = expression[0]
+    successors = []
+    exclusion = []
+    for t in range(MAX_TIME_STEP):
+        succ = []
+        ex = []
+        suc = []
+        if t > 0:
+            for x in range(1, width + 1):
+                for y in range(1, height + 1):
+                    if (x, y) not in walls.asList():
+                        succ += [pacmanSuccessorStateAxioms(x, y, t, walls)]
+            suc = logic.conjoin(succ) #or every place at t 
+            if successors:
+                success = logic.conjoin(suc, logic.conjoin(successors)) #combine with previous successors
+            else:
+                success = suc
+            for action in actions: #exclusion axioms
+                ex.append(logic.PropSymbolExpr(action, t-1))
+            n = exactlyOne(ex)
+            exclusion.append(n)
+            exclus = logic.conjoin(exclusion)
+            food_locations_eaten = list()
+            for food_particle in food_locations:
+                food_particles = list()
+                for i in range(0, t+1):
+                    food_particles.append(logic.PropSymbolExpr("P", food_particle[0], food_particle[1], i))
+                food_particles = logic.disjoin(food_particles)
+                food_locations_eaten.append(food_particles)
+            food_locations_eaten = logic.conjoin(food_locations_eaten)
+            j = findModel(logic.conjoin(initial, food_locations_eaten, exclus, success)) #and them together
+        else:
+            food_locations_eaten = list()
+            for food_particle in food_locations:
+                food_locations_eaten.append(logic.PropSymbolExpr("P", food_particle[0], food_particle[1], 0))
+            food_locations_eaten = logic.conjoin(food_locations_eaten)
+            j = findModel(logic.conjoin(initial, food_locations_eaten))
+        if j is not False:
+            return extractActionSequence(j, actions)
+        if suc:
+            successors.append(suc)
+    return None
 
 def ghostPositionSuccessorStateAxioms(x, y, t, ghost_num, walls_grid):
     """

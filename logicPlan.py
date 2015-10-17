@@ -560,14 +560,16 @@ def foodGhostLogicPlan(problem):
     wall = walls.asList()
     # ble = problem.walls.asList()
     # print wall
-    for x in range(1, width + 1):
-        for y in range(1, height + 1):
+    for x in range(0, width + 2):
+        for y in range(0, height + 1):
             # print (x, y)
             if (x, y) in wall:
                 if (x+1, y) not in wall:
-                    blocked_west_positions.append((x+1, y))
+                    if x <= width:
+                        blocked_west_positions.append((x+1, y))
                 if (x-1, y) not in wall:
-                    blocked_east_positions.append((x-1, y))
+                    if x > 0:
+                        blocked_east_positions.append((x-1, y))
     i = 0
     ghost_init = []
     ghost1pos = []
@@ -586,7 +588,7 @@ def foodGhostLogicPlan(problem):
                     expression.append(logic.PropSymbolExpr("P", x, y, 0))
             if (x, y) in ghost_positions:
                 east_str = ghost_east_str+str(i)
-                if (x+1, y) in problem.walls.asList() or (x, y) in blocked_east_positions:
+                if (x, y) in blocked_east_positions:
                     if ghost_init:
                         u = ghost_init.pop()
                         r = ghost1pos.pop()
@@ -597,7 +599,7 @@ def foodGhostLogicPlan(problem):
                         ghost_init.append(~logic.PropSymbolExpr(east_str, 0))
                         ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
                         i += 1
-                    print ghost_init
+                    # print ghost_init
                 else:
                     if ghost_init:
                         u = ghost_init.pop()

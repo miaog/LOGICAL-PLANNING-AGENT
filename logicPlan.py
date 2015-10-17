@@ -625,14 +625,15 @@ def foodGhostLogicPlan(problem):
     # print ghost2pos
     initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], logic.conjoin(ghost2pos))
 
-    print initial
+    # print initial
     successors = []
     exclusion = []
     ghost_successors = []
     ghost_exclusion = []
     alive1 = []
+    alive2 = []
     for t in range(MAX_TIME_STEP):
-        print t
+        # print t
         succ = []
         ex = []
         suc = []
@@ -646,7 +647,7 @@ def foodGhostLogicPlan(problem):
                 for y in range(1, height + 1):
                     if (x, y) not in walls.asList():
                         succ += [pacmanSuccessorStateAxioms(x, y, t, walls)]
-                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t+1, ghost_num)]
+                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
                         i = 0
                         while i != ghost_num:
                             ghost += [ghostPositionSuccessorStateAxioms(x, y, t, i, walls)]
@@ -668,7 +669,7 @@ def foodGhostLogicPlan(problem):
             else:
                 success = suc
             if alive1:
-                aliv = logic.conjoin(logic.conjoin(alive), logic.conjoin(alive1))
+                aliv = logic.conjoin(logic.conjoin(alive), alive1)
             else:
                 aliv = logic.conjoin(alive) 
             for action in actions: #exclusion axioms
@@ -685,22 +686,19 @@ def foodGhostLogicPlan(problem):
                 food_particles = logic.disjoin(food_particles)
                 food_locations_eaten.append(food_particles)
             food_locations_eaten = logic.conjoin(food_locations_eaten)
-            j = findModel(logic.conjoin(initial, aliv, food_locations_eaten, exclus, success, ghos)) #and them together
+            alive2 = logic.conjoin(alive2, logic.PropSymbolExpr(pacman_alive_str, t))
+            j = findModel(logic.conjoin(initial, aliv, food_locations_eaten, exclus, success, ghos, alive2)) #and them together
             successors.append(suc)
             ghost_successors.append(logic.conjoin(ghost))
-            alive1.append(aliv)
+            alive1 = aliv
+            # print j
         else:
-            for x in range(1, width + 1):
-                for y in range(1, height + 1):
-                    if (x, y) not in walls.asList():
-                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t+1, ghost_num)]
-            aliv = logic.conjoin(alive)
             food_locations_eaten = list()
             for food_particle in food_locations:
                 food_locations_eaten.append(logic.PropSymbolExpr("P", food_particle[0], food_particle[1], 0))
             food_locations_eaten = logic.conjoin(food_locations_eaten)
-            j = findModel(logic.conjoin(initial, food_locations_eaten, aliv))
-            alive1.append(aliv)
+            alive2 = logic.PropSymbolExpr(pacman_alive_str, t)
+            j = findModel(logic.conjoin(initial, food_locations_eaten, alive2))
         if j is not False:
             return extractActionSequence(j, actions)
     return None

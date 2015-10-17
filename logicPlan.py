@@ -481,26 +481,18 @@ def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blo
         hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
     #make sure ghost is not in positions where it is blocked to the right
     wont = logic.conjoin(wont)
-    # print wont
     tont = logic.conjoin(dont)
-    # print tont
     dont = logic.disjoin(dont)
-    # print dont
     hont = logic.conjoin(hont)
-    # print hont
     sont = logic.conjoin(wont, tont)
-    # print sont
     jont = ~logic.conjoin(hont, ~logic.PropSymbolExpr(east_str, t-1))
-    # print jont
     m = logic.disjoin(wont, dont)
     h = logic.conjoin(wont, dont)
     k = logic.conjoin(m, ~logic.PropSymbolExpr(east_str, t-1))
     l = logic.disjoin(k, logic.conjoin(h, logic.PropSymbolExpr(east_str, t-1)), logic.conjoin(hont, logic.PropSymbolExpr(east_str, t-1)))
     b = logic.conjoin(l, jont)
     final_axiom = logic.PropSymbolExpr(east_str, t) % b
-    # print final_axiom
     return final_axiom
-    # return logic.Expr('A') 
 
 
 def pacmanAliveSuccessorStateAxioms(x, y, t, num_ghosts):
@@ -586,9 +578,9 @@ def foodGhostLogicPlan(problem):
                     v = expression.pop()
                     expression.append(logic.conjoin(v,logic.PropSymbolExpr("P", x, y, 0)))
                 else:
-                    expression.append(logic.Expr(logic.PropSymbolExpr("P", x, y, 0)))
+                    expression.append(logic.PropSymbolExpr("P", x, y, 0))
             if (x, y) in ghost_positions:
-                east_str = ghost_pos_str+str(i)
+                east_str = ghost_east_str+str(i)
                 if (x, y) in blocked_east_positions:
                     if ghost_init:
                         u = ghost_init.pop()
@@ -622,8 +614,9 @@ def foodGhostLogicPlan(problem):
                 else:
                     expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
     # print ghost2pos
-    initial = logic.conjoin(expression[0], logic.conjoin(ghost_init), logic.conjoin(ghost1pos), logic.conjoin(ghost2pos))
-    # print initial
+    initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], logic.conjoin(ghost2pos))
+    
+    print initial
     successors = []
     exclusion = []
     ghost_successors = []

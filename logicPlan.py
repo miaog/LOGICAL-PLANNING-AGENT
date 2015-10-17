@@ -481,18 +481,26 @@ def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blo
         hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
     #make sure ghost is not in positions where it is blocked to the right
     wont = logic.conjoin(wont)
+    # print wont
     tont = logic.conjoin(dont)
+    # print tont
     dont = logic.disjoin(dont)
+    # print dont
     hont = logic.conjoin(hont)
+    # print hont
     sont = logic.conjoin(wont, tont)
+    # print sont
     jont = ~logic.conjoin(hont, ~logic.PropSymbolExpr(east_str, t-1))
+    # print jont
     m = logic.disjoin(wont, dont)
     h = logic.conjoin(wont, dont)
     k = logic.conjoin(m, ~logic.PropSymbolExpr(east_str, t-1))
     l = logic.disjoin(k, logic.conjoin(h, logic.PropSymbolExpr(east_str, t-1)), logic.conjoin(hont, logic.PropSymbolExpr(east_str, t-1)))
     b = logic.conjoin(l, jont)
     final_axiom = logic.PropSymbolExpr(east_str, t) % b
+    # print final_axiom
     return final_axiom
+    # return logic.Expr('A') 
 
 
 def pacmanAliveSuccessorStateAxioms(x, y, t, num_ghosts):
@@ -550,6 +558,7 @@ def foodGhostLogicPlan(problem):
     blocked_east_positions = []
     blocked_west_positions = []
     wall = walls.asList()
+    ble = problem.walls.asList()
     # print wall
     for x in range(1, width + 1):
         for y in range(1, height + 1):
@@ -559,10 +568,8 @@ def foodGhostLogicPlan(problem):
                     blocked_west_positions.append((x+1, y))
                 if (x-1, y) not in wall:
                     blocked_east_positions.append((x-1, y))
-
-    # a = ghostDirectionSuccessorStateAxioms(2, ghost_num, blocked_west_positions, blocked_east_positions)
-    # ghost_pos_str+str(ghost_num)
-    # ghost_dir = {}
+    if blocked_east_positions:
+        ble.append(blocked_east_positions)
     i = 0
     ghost_init = []
     ghost1pos = []
@@ -581,33 +588,35 @@ def foodGhostLogicPlan(problem):
                     expression.append(logic.PropSymbolExpr("P", x, y, 0))
             if (x, y) in ghost_positions:
                 east_str = ghost_east_str+str(i)
-                if (x, y) in blocked_east_positions:
+                if (x+1, y) in ble:
                     if ghost_init:
                         u = ghost_init.pop()
                         r = ghost1pos.pop()
-                        ghost_init.append(u, ~logic.PropSymbolExpr(east_str, 0))
-                        ghost1pos.append(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
+                        ghost_init.append(logic.conjoin(u, ~logic.PropSymbolExpr(east_str, 0)))
+                        ghost1pos.append(logic.conjoin(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)))
                         i += 1
                     else:
                         ghost_init.append(~logic.PropSymbolExpr(east_str, 0))
                         ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
                         i += 1
+                    print ghost_init
                 else:
                     if ghost_init:
                         u = ghost_init.pop()
                         r = ghost1pos.pop()
-                        ghost_init.append(u, logic.PropSymbolExpr(east_str, 0))
-                        ghost1pos.append(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
+                        ghost_init.append(logic.conjoin(u, logic.PropSymbolExpr(east_str, 0)))
+                        ghost1pos.append(logic.conjoin(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)))
                         i += 1
                     else:
                         ghost_init.append(logic.PropSymbolExpr(east_str, 0))
                         ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
                         i += 1
             if (x, y) != pacman_initial_location:
-                e = 0
-                while e != ghost_num:
-                    ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
-                    e += 1
+                if (x, y) not in ghost_positions:
+                    e = 0
+                    while e != ghost_num:
+                        ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
+                        e += 1
                 if expression:
                     v = expression.pop()
                     expression.append(logic.conjoin(v,logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))))
@@ -615,7 +624,7 @@ def foodGhostLogicPlan(problem):
                     expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
     # print ghost2pos
     initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], logic.conjoin(ghost2pos))
-    
+
     print initial
     successors = []
     exclusion = []
@@ -637,7 +646,7 @@ def foodGhostLogicPlan(problem):
                 for y in range(1, height + 1):
                     if (x, y) not in walls.asList():
                         succ += [pacmanSuccessorStateAxioms(x, y, t, walls)]
-                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
+                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t+1, ghost_num)]
                         i = 0
                         while i != ghost_num:
                             ghost += [ghostPositionSuccessorStateAxioms(x, y, t, i, walls)]

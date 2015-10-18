@@ -200,14 +200,11 @@ def exactlyOne(literals) :
 
         # Disjoin literal with NOT(literal) for every other element besides this literal
         # and add it to the list to be conjoined
-        reached_literal = False
         for inner_literal in literals:
-            if (reached_literal):
+            if literal != inner_literal:
                 not_inner_literal = ~inner_literal
                 disjunction = logic.disjoin(not_literal, not_inner_literal)
                 conjunctions.append(disjunction)
-            if literal == inner_literal:
-                reached_literal = True
 
     # Add the expression that states at least one of the literals must be true
     one_must_be_true = logic.disjoin(one_must_be_true_list)
@@ -299,10 +296,8 @@ def positionLogicPlan(problem):
     goal_state = problem.getGoalState()
     expression = list()
 
-
-    # CAN ONLY START AT ONE LOCATION
-    for x in range(1, width+1) :
-        for y in range(1, height+1) :
+    for x in range(1, width + 1) :
+        for y in range(1, height + 1) :
             if (x, y) == initial_state:
                 if expression:
                     v = expression.pop()
@@ -316,8 +311,6 @@ def positionLogicPlan(problem):
                 else:
                     expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
     initial = expression[0]
-
-
     successors = []
     exclusion = []
     for t in range(MAX_TIME_STEP):
@@ -334,23 +327,14 @@ def positionLogicPlan(problem):
                 success = logic.conjoin(suc, logic.conjoin(successors)) #combine with previous successors
             else:
                 success = suc
-
-
-            # ONLY ONE ACTION CAN BE TAKEN
             for action in actions: #exclusion axioms
                 ex.append(logic.PropSymbolExpr(action, t-1))
             n = exactlyOne(ex)
             exclusion.append(n)
             exclus = logic.conjoin(exclusion)
-
-
-            # GOAL TEST
             goal = logic.conjoin(logic.PropSymbolExpr("P", goal_state[0], goal_state[1], t+1), pacmanSuccessorStateAxioms(goal_state[0], goal_state[1], t+1, walls))
-
-            
-            # CONJOIN AND FIND MODEL
+            #get goal location & successor states
             j = findModel(logic.conjoin(initial, goal, exclus, success)) #and them together
-
         else:
             goal = logic.conjoin(logic.PropSymbolExpr("P", goal_state[0], goal_state[1], t+1), pacmanSuccessorStateAxioms(goal_state[0], goal_state[1], t+1, walls))
             j = findModel(logic.conjoin(initial, goal))
@@ -468,6 +452,7 @@ def ghostPositionSuccessorStateAxioms(x, y, t, ghost_num, walls_grid):
         final_axiom = current % logic.PropSymbolExpr(pos_str, x, y, t-1)
     else:
         final_axiom = current % prev_states
+    # print final_axiom
     return final_axiom
 
 def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blocked_east_positions):
@@ -532,13 +517,14 @@ def pacmanAliveSuccessorStateAxioms(x, y, t, num_ghosts):
     k = []
     l = []
     while num_ghosts != 0:
-        k += [logic.conjoin(logic.PropSymbolExpr(pacman_str, x, y, t), logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t))]
-        l += [logic.conjoin(logic.PropSymbolExpr(pacman_str, x, y, t), logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t-1))]
+        k += [logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t-1) | logic.PropSymbolExpr(ghost_strs[num_ghosts-1], x, y, t)]
         num_ghosts -= 1
     m = ~logic.PropSymbolExpr(pacman_alive_str, t-1)
 
-    prev_states = logic.disjoin(logic.disjoin(k), logic.disjoin(l), m)
+    prev_states = logic.disjoin(k)
+    prev_states = logic.conjoin(logic.PropSymbolExpr(pacman_str, x, y, t), prev_states) | m
     final_axiom = ~logic.PropSymbolExpr(pacman_alive_str, t) % prev_states
+    # print final_axiom
     return final_axiom
 
 def foodGhostLogicPlan(problem):
@@ -559,7 +545,6 @@ def foodGhostLogicPlan(problem):
     ghost_num = len(ghost_positions)
     MAX_TIME_STEP = 50
     actions = ['North', 'East', 'South', 'West']
-    
 
     initial_state = problem.getStartState()
     # Pacman's initial location
@@ -567,12 +552,11 @@ def foodGhostLogicPlan(problem):
     # Food locations
     food_locations = initial_state[1].asList()
 
-    
-    # GET THE BLOCKED POSITIONS TO PASS INTO GHOST DIRECTION SSA
+    expression = list()
+
     blocked_east_positions = []
     blocked_west_positions = []
     wall = walls.asList()
-    # ble = problem.walls.asList()
     for x in range(0, width + 2):
         for y in range(0, height + 1):
             if (x, y) in wall:
@@ -582,15 +566,16 @@ def foodGhostLogicPlan(problem):
                 if (x-1, y) not in wall:
                     if x > 0:
                         blocked_east_positions.append((x-1, y))
-
     i = 0
     ghost_init = []
     ghost1pos = []
     ghost2pos = []
-    expression = list()
+    # print "WAT"
     for x in range(1, width + 1) :
         for y in range(1, height + 1) :
+            # print (x, y)
             if (x, y) == pacman_initial_location:
+                # print "WAT"
                 e = 0
                 while e != ghost_num:
                     ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
@@ -601,7 +586,13 @@ def foodGhostLogicPlan(problem):
                 else:
                     expression.append(logic.PropSymbolExpr("P", x, y, 0))
             if (x, y) in ghost_positions:
+                # print "NAT"
                 east_str = ghost_east_str+str(i)
+                e = 0
+                while e != ghost_num:
+                    if e != i:
+                        ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
+                    e += 1
                 if (x, y) in blocked_east_positions:
                     if ghost_init:
                         u = ghost_init.pop()
@@ -613,7 +604,6 @@ def foodGhostLogicPlan(problem):
                         ghost_init.append(~logic.PropSymbolExpr(east_str, 0))
                         ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
                         i += 1
-                    # print ghost_init
                 else:
                     if ghost_init:
                         u = ghost_init.pop()
@@ -637,58 +627,61 @@ def foodGhostLogicPlan(problem):
                 else:
                     expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
     # print ghost2pos
-    not_ghost = logic.conjoin(ghost2pos)
-    initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], not_ghost)
-    print(initial)
+    initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], logic.conjoin(ghost2pos))
 
-
-    pacman_ssa = []
-    pacman_alive_ssa = []
-    ghost_position_ssa = []
-    ghost_direction_ssa = []
-
-    only_one_action = []
-
+    # print initial
+    successors = []
+    exclusion = []
+    ghost_successors = []
+    ghost_exclusion = []
+    alive1 = []
+    alive2 = []
     for t in range(MAX_TIME_STEP):
-    
+        # print t
+        succ = []
+        ex = []
+        suc = []
+        ghost = []
+        ghos = []
+        gho = []
+        alive = []
+        aliv = []
         if t > 0:
             for x in range(1, width + 1):
                 for y in range(1, height + 1):
                     if (x, y) not in walls.asList():
-                        pacman_ssa += [pacmanSuccessorStateAxioms(x, y, t, walls)]
-                        pacman_alive_ssa += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
-                        
+                        succ += [pacmanSuccessorStateAxioms(x, y, t, walls)]
+                        alive += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
                         i = 0
                         while i != ghost_num:
-                            ghost_position_ssa += [ghostPositionSuccessorStateAxioms(x, y, t, i, walls)]
+                            ghost += [ghostPositionSuccessorStateAxioms(x, y, t, i, walls)]
                             i += 1
-            
-            # ADD GHOST_DIRECTION_SSA
             i = 0
             while i != ghost_num:
-                ghost_direction_ssa += [ghostDirectionSuccessorStateAxioms(t, i, blocked_west_positions, blocked_east_positions)]
+                gho += [ghostDirectionSuccessorStateAxioms(t, i, blocked_west_positions, blocked_east_positions)]
                 i += 1
-
-            # CONJOIN PACMAN_SSA
-            pacman_ssa_conjoined = logic.conjoin(pacman_ssa)
-            # CONJOIN PACMAN_ALIVE_SSA
-            pacman_alive_ssa_conjoined = logic.conjoin(pacman_alive_ssa)
-            # CONJOIN GHOST_POSITION_SSA
-            ghost_position_ssa_conjoined = logic.conjoin(ghost_position_ssa)
-            # CONJOIN GHOST_DIRECTION_SSA
-            ghost_direction_ssa_conjoined = logic.conjoin(ghost_direction_ssa)
-
-
-            # MAKES SURE ONLY ONE ACTION IS TAKEN 
-            possible_actions = []
-            one_action = []
+            suc = logic.conjoin(succ) #or every place at t 
+            ghost_exclusion += gho
+            # print logic.conjoin(ghost)
+            if ghost_successors:
+                g = logic.conjoin(ghost_successors) & logic.conjoin(ghost)
+            else:
+                g = logic.conjoin(ghost)
+            ghos = logic.conjoin(g, logic.conjoin(ghost_exclusion))
+            if successors:
+                success = suc & logic.conjoin(successors) #combine with previous successors
+            else:
+                success = suc
+            if alive1:
+                aliv = logic.conjoin(alive) & alive1
+            else:
+                aliv = logic.conjoin(alive) 
             for action in actions: #exclusion axioms
-                possible_actions.append(logic.PropSymbolExpr(action, t-1))
-            one_action = exactlyOne(possible_actions)
-            only_one_action.append(one_action)
-            only_one_action_conjoined = logic.conjoin(only_one_action)
-
-            # FIND OUT IF ALL THE FOOD HAS BEEN EATEN AS A GOAL TEST
+                ex.append(logic.PropSymbolExpr(action, t-1))
+            n = exactlyOne(ex)
+            # print ghos
+            exclusion.append(n)
+            exclus = logic.conjoin(exclusion)
             food_locations_eaten = list()
             for food_particle in food_locations:
                 food_particles = list()
@@ -697,18 +690,18 @@ def foodGhostLogicPlan(problem):
                 food_particles = logic.disjoin(food_particles)
                 food_locations_eaten.append(food_particles)
             food_locations_eaten = logic.conjoin(food_locations_eaten)
-
-            # PACMAN IS ALIVE AT TIME T
-            pacman_alive = logic.PropSymbolExpr(pacman_alive_str, t)
-            j = findModel(pacman_alive & initial & food_locations_eaten & only_one_action_conjoined & pacman_ssa_conjoined & pacman_alive_ssa_conjoined 
-                            & ghost_position_ssa_conjoined & ghost_direction_ssa_conjoined)
-           
+            alive2 = alive2 & logic.PropSymbolExpr(pacman_alive_str, t+1)
+            j = findModel(initial & aliv & food_locations_eaten & exclus & success & ghos & alive2) #and them together
+            successors.append(suc)
+            ghost_successors.append(logic.conjoin(ghost))
+            alive1 = aliv
         else:
             food_locations_eaten = list()
             for food_particle in food_locations:
                 food_locations_eaten.append(logic.PropSymbolExpr("P", food_particle[0], food_particle[1], 0))
             food_locations_eaten = logic.conjoin(food_locations_eaten)
-            j = findModel(logic.conjoin(initial, food_locations_eaten))
+            alive2 = logic.conjoin(logic.PropSymbolExpr(pacman_alive_str, t), logic.PropSymbolExpr(pacman_alive_str, t+1))
+            j = findModel(logic.conjoin(initial, food_locations_eaten, alive2))
         if j is not False:
             # for key, val in j.items():
             #     if val:
@@ -723,3 +716,4 @@ fglp = foodGhostLogicPlan
 
 # Some for the logic module uses pretty deep recursion on long expressions
 sys.setrecursionlimit(100000)
+    

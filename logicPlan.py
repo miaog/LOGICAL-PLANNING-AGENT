@@ -478,36 +478,25 @@ def ghostDirectionSuccessorStateAxioms(t, ghost_num, blocked_west_positions, blo
     """
     pos_str = ghost_pos_str+str(ghost_num)
     east_str = ghost_east_str+str(ghost_num)
-    if not blocked_west_positions and not blocked_east_positions:
-        return logic.PropSymbolExpr(east_str, t) % logic.PropSymbolExpr(east_str, t-1)
-    neighbors = []
-    to_join = []
-    n1 = blocked_west_positions[:]
-    p1 = blocked_east_positions[:]
-    dont = []
-    wont = []
-    hont = []
-    while n1:
-        a = n1.pop()
-        dont += [logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
-        hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
-    while p1:
-        a = p1.pop()
-        wont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
-        hont += [~logic.PropSymbolExpr(pos_str, a[0], a[1], t)]
-    #make sure ghost is not in positions where it is blocked to the right
-    wont = logic.conjoin(wont)
-    tont = logic.conjoin(dont)
-    dont = logic.disjoin(dont)
-    hont = logic.conjoin(hont)
-    sont = logic.conjoin(wont, tont)
-    jont = ~logic.conjoin(hont, ~logic.PropSymbolExpr(east_str, t-1))
-    m = logic.disjoin(wont, dont)
-    h = logic.conjoin(wont, dont)
-    k = logic.conjoin(m, ~logic.PropSymbolExpr(east_str, t-1))
-    l = logic.disjoin(k, logic.conjoin(h, logic.PropSymbolExpr(east_str, t-1)), logic.conjoin(hont, logic.PropSymbolExpr(east_str, t-1)))
-    b = logic.conjoin(l, jont)
-    final_axiom = logic.PropSymbolExpr(east_str, t) % b
+    west_positions = list()
+    east_positions = list()
+    blocked_west_positions_copy = blocked_west_positions[:]
+    blocked_east_positions_copy = blocked_east_positions[:]
+
+    while blocked_west_positions_copy:
+        position = blocked_west_positions_copy.pop()
+        west_positions.append(logic.PropSymbolExpr(pos_str, position[0], position[1], t))
+   
+    while blocked_east_positions_copy:
+        position = blocked_east_positions_copy.pop()
+        east_positions.append(logic.PropSymbolExpr(pos_str, position[0], position[1], t))
+    
+    west_positions = logic.disjoin(west_positions)
+    east_positions = logic.disjoin(east_positions)
+
+    conditions = (west_positions & ~logic.PropSymbolExpr(east_str, t-1)) | (~east_positions & logic.PropSymbolExpr(east_str, t-1))
+    final_axiom = logic.PropSymbolExpr(east_str, t) % conditions
+
     return final_axiom 
 
 
@@ -568,6 +557,7 @@ def foodGhostLogicPlan(problem):
     blocked_west_positions = []
     wall = walls.asList()
     # ble = problem.walls.asList()
+    
     for x in range(0, width + 2):
         for y in range(0, height + 1):
             if (x, y) in wall:
@@ -577,7 +567,7 @@ def foodGhostLogicPlan(problem):
                 if (x-1, y) not in wall:
                     if x > 0:
                         blocked_east_positions.append((x-1, y))
-
+  
     i = 0
     ghost_init = []
     ghost1pos = []
@@ -648,17 +638,19 @@ def foodGhostLogicPlan(problem):
     # not_ghost = logic.conjoin(ghost2pos)
 
     initial = expression & ghost_init & ghost1pos & ghost2pos
-    # print initial
+    
     pacman_ssa = []
     pacman_alive_ssa = []
     ghost_position_ssa = []
     ghost_direction_ssa = []
 
     only_one_action = []
-
-    for t in range(MAX_TIME_STEP):
     
+    for t in range(MAX_TIME_STEP):
+        
         if t > 0:
+            once = True
+           
             for x in range(1, width + 1):
                 for y in range(1, height + 1):
                     if not walls[x][y]:
@@ -668,15 +660,16 @@ def foodGhostLogicPlan(problem):
                         
                         i = 0
                         while i != ghost_num:
+                            if once:
+                                ghost_direction_ssa += [ghostDirectionSuccessorStateAxioms(t, i, blocked_west_positions, blocked_east_positions)]
                             ghost_position_ssa += [ghostPositionSuccessorStateAxioms(x, y, t, i, walls)]
                             i += 1
+                        once = False
             
             # ADD GHOST_DIRECTION_SSA
             i = 0
-            while i != ghost_num:
-                ghost_direction_ssa += [ghostDirectionSuccessorStateAxioms(t, i, blocked_west_positions, blocked_east_positions)]
-                i += 1
-
+           
+       
             # CONJOIN PACMAN_SSA
             pacman_ssa_conjoined = logic.conjoin(pacman_ssa)
             # CONJOIN PACMAN_ALIVE_SSA
@@ -686,7 +679,7 @@ def foodGhostLogicPlan(problem):
             # CONJOIN GHOST_DIRECTION_SSA
             ghost_direction_ssa_conjoined = logic.conjoin(ghost_direction_ssa)
 
-
+            
             # MAKES SURE ONLY ONE ACTION IS TAKEN 
             possible_actions = []
             one_action = []
@@ -696,7 +689,7 @@ def foodGhostLogicPlan(problem):
             only_one_action.append(one_action)
             only_one_action_conjoined = logic.conjoin(only_one_action)
 
-
+        
             # FIND OUT IF ALL THE FOOD HAS BEEN EATEN AS A GOAL TEST
             food_locations_eaten = list()
             for food_particle in food_locations:
@@ -706,8 +699,9 @@ def foodGhostLogicPlan(problem):
                 food_particles = logic.disjoin(food_particles)
                 food_locations_eaten.append(food_particles)
             food_locations_eaten = logic.conjoin(food_locations_eaten)
-
+           
             # PACMAN IS ALIVE AT TIME T
+        
             pacman_alive = logic.to_cnf(logic.PropSymbolExpr(pacman_alive_str, t))
             initial = logic.to_cnf(initial)
             food_locations_eaten = logic.to_cnf(food_locations_eaten)
@@ -716,10 +710,10 @@ def foodGhostLogicPlan(problem):
             pacman_alive_ssa_conjoined = logic.to_cnf(pacman_alive_ssa_conjoined)
             ghost_position_ssa_conjoined = logic.to_cnf(ghost_position_ssa_conjoined)
             ghost_direction_ssa_conjoined = logic.to_cnf(ghost_direction_ssa_conjoined)
-
+  
             j = logic.pycoSAT(pacman_alive & initial & food_locations_eaten & only_one_action_conjoined & pacman_ssa_conjoined & pacman_alive_ssa_conjoined 
                             & ghost_position_ssa_conjoined & ghost_direction_ssa_conjoined)
-           
+    
         else:
             food_locations_eaten = list()
             for food_particle in food_locations:

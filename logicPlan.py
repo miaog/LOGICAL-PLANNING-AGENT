@@ -585,58 +585,67 @@ def foodGhostLogicPlan(problem):
             if (x, y) == pacman_initial_location:
                 e = 0
                 while e != ghost_num:
-                    ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
+                    if ghost2pos:
+                        ghost2pos = ghost2pos & ~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0)
+                    else:
+                        ~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0)
                     e += 1
                 if expression:
-                    v = expression.pop()
-                    expression.append(logic.conjoin(v,logic.PropSymbolExpr("P", x, y, 0)))
+                    # v = expression.pop()
+                    expression = expression & logic.PropSymbolExpr("P", x, y, 0)
                 else:
-                    expression.append(logic.PropSymbolExpr("P", x, y, 0))
+                    expression = logic.PropSymbolExpr("P", x, y, 0)
             if (x, y) in ghost_positions:
                 east_str = ghost_east_str+str(i)
                 j = 0
                 while j != ghost_num:
                     if j != i:
-                        ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(j), x, y, 0))
+                        if ghost2pos:
+                            ghost2pos = ghost2pos & ~logic.PropSymbolExpr(ghost_pos_str+str(j), x, y, 0)
+                        else:
+                            ghost2pos = ~logic.PropSymbolExpr(ghost_pos_str+str(j), x, y, 0)
                     j += 1
                 if (x, y) in blocked_east_positions:
                     if ghost_init:
-                        u = ghost_init.pop()
-                        r = ghost1pos.pop()
-                        ghost_init.append(logic.conjoin(u, ~logic.PropSymbolExpr(east_str, 0)))
-                        ghost1pos.append(logic.conjoin(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)))
+                        # u = ghost_init.pop()
+                        # r = ghost1pos.pop()
+                        ghost_init = ghost_init & ~logic.PropSymbolExpr(east_str, 0)
+                        ghost1pos = ghost1pos & logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)
                         i += 1
                     else:
-                        ghost_init.append(~logic.PropSymbolExpr(east_str, 0))
-                        ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
+                        ghost_init = ~logic.PropSymbolExpr(east_str, 0)
+                        ghost1pos = logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)
                         i += 1
                 else:
                     if ghost_init:
-                        u = ghost_init.pop()
-                        r = ghost1pos.pop()
-                        ghost_init.append(logic.conjoin(u, logic.PropSymbolExpr(east_str, 0)))
-                        ghost1pos.append(logic.conjoin(r, logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)))
+                        # u = ghost_init.pop()
+                        # r = ghost1pos.pop()
+                        ghost_init = ghost_init & logic.PropSymbolExpr(east_str, 0)
+                        ghost1pos = ghost1pos & logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)
                         i += 1
                     else:
-                        ghost_init.append(logic.PropSymbolExpr(east_str, 0))
-                        ghost1pos.append(logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0))
+                        ghost_init = logic.PropSymbolExpr(east_str, 0)
+                        ghost1pos = logic.PropSymbolExpr(ghost_pos_str+str(i), x, y, 0)
                         i += 1
             if (x, y) != pacman_initial_location:
                 if (x, y) not in ghost_positions:
                     e = 0
                     while e != ghost_num:
-                        ghost2pos.append(~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0))
+                        if ghost2pos:
+                            ghost2pos = ghost2pos & ~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0)
+                        else:
+                            ghost2pos = ~logic.PropSymbolExpr(ghost_pos_str+str(e), x, y, 0)
                         e += 1
                 if expression:
-                    v = expression.pop()
-                    expression.append(logic.conjoin(v,logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))))
+                    # v = expression.pop()
+                    expression = expression & logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))
                 else:
-                    expression.append(logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0)))
+                    expression = logic.Expr("~", logic.PropSymbolExpr("P", x, y, 0))
     
-    not_ghost = logic.conjoin(ghost2pos)
+    # not_ghost = logic.conjoin(ghost2pos)
 
-    initial = logic.conjoin(expression[0], ghost_init[0], ghost1pos[0], not_ghost)
-
+    initial = expression & ghost_init & ghost1pos & ghost2pos
+    # print initial
     pacman_ssa = []
     pacman_alive_ssa = []
     ghost_position_ssa = []

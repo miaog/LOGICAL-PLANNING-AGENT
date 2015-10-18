@@ -546,8 +546,11 @@ def foodGhostLogicPlan(problem):
     width, height = problem.getWidth(), problem.getHeight()
     ghosts = problem.getGhostStartStates()
     ghost_positions = []
+    ghost_rows = []
     for ghost in ghosts:
-        ghost_positions.append(ghost.getPosition())
+        p = ghost.getPosition()
+        ghost_positions.append(p)
+        ghost_rows.append(p[1])
     ghost_num = len(ghost_positions)
     MAX_TIME_STEP = 50
     actions = ['North', 'East', 'South', 'West']
@@ -660,7 +663,8 @@ def foodGhostLogicPlan(problem):
                 for y in range(1, height + 1):
                     if not walls[x][y]:
                         pacman_ssa += [pacmanSuccessorStateAxioms(x, y, t, walls)]
-                        pacman_alive_ssa += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
+                        if y in ghost_rows:
+                            pacman_alive_ssa += [pacmanAliveSuccessorStateAxioms(x, y, t, ghost_num)]
                         
                         i = 0
                         while i != ghost_num:
